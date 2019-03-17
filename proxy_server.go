@@ -252,6 +252,18 @@ func newTopProxyHandler(filebase string, apiProxyPrefix string, staticPrefix str
 			Extra:    authResp.User.GetExtra(),
 		}
 
+		namespace := getNamespaceFromPath(r.URL.Path)
+		klog.V(1).Infof("namespace: [%s]", namespace)
+		if namespace == "" {
+			// proxy to local
+		} else {
+			clusterName, err := getClusterFromNamespace(namespace)
+			if err != nil {
+				klog.Errorf("%v", err)
+			}
+			klog.V(1).Infof("cluster for namespace [%s] is [%s]", namespace, clusterName)
+		}
+
 		newCfgFile := "/Users/junzhou/.kube/config-c2"
 		newCfg, err := clientcmd.BuildConfigFromFlags("", newCfgFile)
 		proxyToTarget, err := newDynamicProxyHandler(filebase, apiProxyPrefix, staticPrefix, filter, newCfg, keepalive, impersonateConfig)
@@ -364,4 +376,18 @@ func stripLeaveSlash(prefix string, h http.Handler) http.Handler {
 		req.URL.Path = p
 		h.ServeHTTP(w, req)
 	})
+}
+
+func getNamespaceFromPath(path string) string {
+	klog.V(1).Infof("path: %s", path)
+	r, _ := regexp.Compile(".*/namespaces/([^/]*)/.*")
+	sub := r.FindStringSubmatch(path)
+	if len(sub) != 2 {
+		return ""
+	}
+	return sub[1]
+}
+
+func getClusterFromNamespace(namespace string) (string, error) {
+	return "cluster2", nil
 }
